@@ -14,29 +14,29 @@ passport.use(
     },
     async (accessToken, refreshToken, profile, done) => {
       try {
-        console.log("🔐 Google OAuth Profile:", profile.displayName, profile.emails[0].value); // Debug log
+        console.log("Google OAuth Profile:", profile.displayName, profile.emails[0].value);
         
         let user = await User.findOne({ googleId: profile.id });
 
         if (!user) {
-          console.log("🆕 Creating new user in database..."); // Debug log
+          console.log("Creating new user in database...");
           user = await User.create({
             googleId: profile.id,
             name: profile.displayName,
             email: profile.emails[0].value,
             avatar: profile.photos[0].value,
-            username: profile.displayName.replace(/\s+/g, '').toLowerCase(), // Create username from name
+            username: profile.displayName.replace(/\s+/g, '').toLowerCase(),
             bio: "",
             location: ""
           });
-          console.log("✅ New user created:", user.name); // Debug log
+          console.log("New user created:", user.name);
         } else {
-          console.log("✅ Existing user found:", user.name); // Debug log
+          console.log("Existing user found:", user.name);
         }
 
         return done(null, user);
       } catch (error) {
-        console.error("❌ Error in Google OAuth:", error);
+        console.error("Error in Google OAuth:", error);
         return done(error);
       }
     }
@@ -44,22 +44,22 @@ passport.use(
 );
 
 passport.serializeUser((user, done) => {
-  console.log("💾 Serializing user:", user.id);
+  console.log("Serializing user:", user.id);
   done(null, user.id);
 });
 
 passport.deserializeUser(async (id, done) => {
   try {
-    console.log("🔍 Deserializing user ID:", id);
+    console.log("Deserializing user ID:", id);
     const user = await User.findById(id);
     if (!user) {
-      console.log("❌ User not found during deserialization");
+      console.log("User not found during deserialization");
       return done(null, false);
     }
-    console.log("✅ User deserialized:", user.name);
+    console.log("User deserialized:", user.name);
     done(null, user);
   } catch (error) {
-    console.error("❌ Error deserializing user:", error);
+    console.error("Error deserializing user:", error);
     done(error, null);
   }
 });

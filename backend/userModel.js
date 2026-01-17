@@ -1,26 +1,52 @@
-import mongoose from 'mongoose';
+// userModel.js
+import mongoose from "mongoose";
 
-const userSchema = new mongoose.Schema({
-  googleId: String,
-  name: String,
-  email: String,
-  avatar: String,
-  username: {
-    type: String,
-    unique: true,
-    sparse: true
+const buildSchema = new mongoose.Schema(
+  {
+    name: { type: String, required: true },
+    parts: { type: mongoose.Schema.Types.Mixed, default: {} },
+    totalPrice: { type: Number, default: 0 },
+    createdAt: { type: Date, default: Date.now }
   },
-  password: String, // Add password field
-  bio: {
-    type: String,
-    default: ""
+  { _id: true }
+);
+
+const userSchema = new mongoose.Schema(
+  {
+    googleId: String,
+    name: String,
+    email: String,
+    avatar: String,
+    username: {
+      type: String,
+      unique: true,
+      sparse: true
+    },
+    password: String,
+    bio: {
+      type: String,
+      default: ""
+    },
+    location: {
+      type: String,
+      default: ""
+    },
+    isAdmin: {
+      type: Boolean,
+      default: false
+    },
+    currentBuild: {
+      type: mongoose.Schema.Types.Mixed,
+      default: {}
+    },
+    builds: {
+      type: [buildSchema],
+      default: []
+    }
   },
-  location: {
-    type: String,
-    default: ""
+  {
+    timestamps: true
   }
-}, {
-  timestamps: true
-});
+);
 
-export default mongoose.model('User', userSchema);
+export default mongoose.model("User", userSchema);

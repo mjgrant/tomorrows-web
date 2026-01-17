@@ -9,6 +9,8 @@ function Profile({ user }) {
     location: ""
   });
   const [savedBuilds, setSavedBuilds] = useState([]);
+  const [loadingBuilds, setLoadingBuilds] = useState(false);
+  const [buildError, setBuildError] = useState("");
 
   // Initialize form data when user loads
   useEffect(() => {
@@ -19,18 +21,43 @@ function Profile({ user }) {
         bio: user.bio || "",
         location: user.location || ""
       });
-      
-      // Load saved builds (mock data for now)
-      setSavedBuilds([
-        { id: 1, name: "Gaming PC Build", total: "$1,200", date: "2024-01-15" },
-        { id: 2, name: "Workstation Build", total: "$2,500", date: "2024-01-10" }
-      ]);
     }
+  }, [user]);
+
+  // Fetch saved builds from backend
+  useEffect(() => {
+    const fetchBuilds = async () => {
+      if (!user) return;
+      setLoadingBuilds(true);
+      setBuildError("");
+
+      try {
+        const res = await fetch("http://localhost:5000/api/build/saved", {
+          credentials: "include"
+        });
+
+        if (!res.ok) {
+          throw new Error("Failed to load saved builds");
+        }
+
+        const data = await res.json();
+        // Expecting { builds: [...] }
+        setSavedBuilds(Array.isArray(data.builds) ? data.builds : []);
+      } catch (err) {
+        console.error("Error fetching saved builds:", err);
+        setBuildError("Could not load saved builds. Please try again.");
+        setSavedBuilds([]);
+      } finally {
+        setLoadingBuilds(false);
+      }
+    };
+
+    fetchBuilds();
   }, [user]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
       [name]: value
     }));
@@ -38,11 +65,10 @@ function Profile({ user }) {
 
   const handleSave = async () => {
     try {
-      // Update user profile in backend
       const response = await fetch("http://localhost:5000/auth/profile", {
         method: "PUT",
         headers: {
-          "Content-Type": "application/json",
+          "Content-Type": "application/json"
         },
         credentials: "include",
         body: JSON.stringify(formData)
@@ -50,7 +76,6 @@ function Profile({ user }) {
 
       if (response.ok) {
         setIsEditing(false);
-        // You might want to update the user context/state here
         console.log("Profile updated successfully");
       } else {
         console.error("Failed to update profile");
@@ -68,7 +93,13 @@ function Profile({ user }) {
       });
 
       if (response.ok) {
-        // Redirect to home page or refresh to update auth state
+        try {
+          sessionStorage.removeItem("currentBuild");
+          localStorage.removeItem("currentBuild");
+        } catch (e) {
+          console.warn("Could not clear stored build on logout:", e);
+        }
+
         window.location.href = "/";
       } else {
         console.error("Logout failed");
@@ -78,9 +109,25 @@ function Profile({ user }) {
     }
   };
 
-  const deleteBuild = (buildId) => {
-    setSavedBuilds(prev => prev.filter(build => build.id !== buildId));
-    // In a real app, you'd also call your backend API here
+  const deleteBuild = async (buildId) => {
+    try {
+      const res = await fetch(
+        `http://localhost:5000/api/build/saved/${buildId}`,
+        {
+          method: "DELETE",
+          credentials: "include"
+        }
+      );
+
+      if (!res.ok) {
+        throw new Error("Failed to delete build");
+      }
+
+      setSavedBuilds((prev) => prev.filter((b) => b._id !== buildId));
+    } catch (err) {
+      console.error("Error deleting build:", err);
+      alert("Could not delete that build. Please try again.");
+    }
   };
 
   if (!user) {
@@ -100,10 +147,7 @@ function Profile({ user }) {
         <h1>Your Profile</h1>
         <div className="profile-actions">
           {!isEditing ? (
-            <button 
-              className="edit-btn"
-              onClick={() => setIsEditing(true)}
-            >
+            <button className="edit-btn" onClick={() => setIsEditing(true)}>
               Edit Profile
             </button>
           ) : (
@@ -111,7 +155,7 @@ function Profile({ user }) {
               <button className="save-btn" onClick={handleSave}>
                 Save Changes
               </button>
-              <button 
+              <button
                 className="cancel-btn"
                 onClick={() => setIsEditing(false)}
               >
@@ -195,29 +239,45 @@ function Profile({ user }) {
 
         <div className="saved-builds">
           <h2>Your Saved Builds</h2>
-          {savedBuilds.length > 0 ? (
-            <div className="builds-list">
-              {savedBuilds.map(build => (
-                <div key={build.id} className="build-card">
-                  <div className="build-info">
-                    <h3>{build.name}</h3>
-                    <p>Total: {build.total}</p>
-                    <p>Created: {build.date}</p>
-                  </div>
-                  <div className="build-actions">
-                    <button className="view-build-btn">View</button>
-                    <button 
-                      className="delete-build-btn"
-                      onClick={() => deleteBuild(build.id)}
-                    >
-                      Delete
-                    </button>
-                  </div>
+
+          {loadingBuilds && <p>Loading builds...</p>}
+          {buildError && <p style={{ color: "#f87171" }}>{buildError}</p>}
+
+          {!loadingBuilds && !buildError && (
+            <>
+              {savedBuilds.length > 0 ? (
+                <div className="builds-list">
+                  {savedBuilds.map((build) => (
+                    <div key={build._id} className="build-card">
+                      <div className="build-info">
+                        <h3>{build.name}</h3>
+                        <p>Total: {build.totalPrice}</p>
+                        <p>
+                          Created:{" "}
+                          {build.createdAt
+                            ? new Date(build.createdAt).toISOString().slice(0, 10)
+                            : "-"}
+                        </p>
+                      </div>
+                      <div className="build-actions">
+                        <button className="view-build-btn" onClick={() => window.location.href = `/builder/${build._id}`}>
+                              View
+                            </button>
+
+                        <button
+                          className="delete-build-btn"
+                          onClick={() => deleteBuild(build._id)}
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
-          ) : (
-            <p>No saved builds yet. Start building!</p>
+              ) : (
+                <p>No saved builds yet. Start building!</p>
+              )}
+            </>
           )}
         </div>
       </div>
